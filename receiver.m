@@ -1,20 +1,40 @@
-% receiver.m
+%% receiver.m
+stations = [F1, F2]; 
+names = {'BBC Arabic', 'Quran Palestine'};
 
-% 1. RF Stage (Pre-selection)
-[b_rf, a_rf] = butter(6, [85e3 115e3]/(Fs_new/2), 'bandpass'); 
-rf_output = filter(b_rf, a_rf, FDM_signal);
-
-% 2. IF Stage (Mixing and Filtering)
-% THIS IS THE MISSING LINE:
-mixed_if = rf_output .* cos(2 * pi * Flo * t); 
-
-[b_if, a_if] = butter(6, [10e3 20e3]/(Fs_new/2), 'bandpass');
-if_output = filter(b_if, a_if, mixed_if);
-
-% 3. Baseband Stage (Final Demodulation)
-mixed_bb = if_output .* cos(2 * pi * Fif * t);
-[b_lp, a_lp] = butter(6, 10e3/(Fs_new/2), 'low');
-final_upsampled = filter(b_lp, a_lp, mixed_bb);
-
-% 4. Final Output
-final_audio = resample(final_upsampled, 1, interp_factor);
+for i = 1:length(stations)
+    fc = stations(i);
+    
+    %% RF Stage
+    % Select the specific station and reject the rest
+    [b_rf, a_rf] = cheby2(6, 60, [fc-12e3, fc+12e3]/(Fs_new/2), 'bandpass');
+    rf_out = filter(b_rf, a_rf, FDM_signal);
+    
+    %% IF Stage
+    % Shift the signal to 15kHz using a High-Side Local Oscillator
+    Flo = fc + Fif; 
+    mixed_if = rf_out .* cos(2 * pi * Flo * t);
+    
+    % Use a sharp bandpass filter to keep only the 15kHz intermediate signal
+    [b_if, a_if] = cheby2(6, 60, [Fif-8e3, Fif+8e3]/(Fs_new/2), 'bandpass');
+    if_out = filter(b_if, a_if, mixed_if);
+    
+    %% BB Stage
+    % Bring the signal down to 0Hz and remove high-frequency noise
+    mixed_bb = if_out .* cos(2 * pi * Fif * t);
+    [b_lp, a_lp] = cheby2(6, 60, 10e3/(Fs_new/2), 'low');
+    bb_out = filter(b_lp, a_lp, mixed_bb);
+    
+    % Downsample and normalize volume for final playback
+    final_audio = resample(bb_out, 1, interp_factor);
+    final_audio = final_audio / max(abs(final_audio));
+    
+    %% Plots & Audios
+    plots(m1_int, Fs_new, [names{i}, ': Original']);
+    plots(FDM_signal, Fs_new, [names{i}, ': FDM']);
+    plots(rf_out, Fs_new, [names{i}, ': RF']);
+    plots(if_out, Fs_new, [names{i}, ': IF']);
+    plots(bb_out, Fs_new, [names{i}, ': Baseband']);
+    sound(final_audio * 0.8, Fs_orig); 
+    pause(length(final_audio)/Fs_orig + 1);
+end

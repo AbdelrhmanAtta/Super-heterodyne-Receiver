@@ -1,9 +1,9 @@
-% config.m
-% 1. Filenames (Ensure these are in the /audios folder)
+%% config.m
+%% Audio locations
 file1 = 'audios/Short_BBCArabic2.wav';
 file2 = 'audios/Short_QuranPalestine.wav';
 
-% 2. System Frequencies
+%% Radio settings
 F1 = 100e3;             
 F2 = 130e3;             
 Fif = 15e3;             
